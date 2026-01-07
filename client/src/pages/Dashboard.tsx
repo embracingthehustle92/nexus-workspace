@@ -21,7 +21,9 @@ import {
   Star,
   ChevronRight,
   Sparkles,
-  Layers
+  Layers,
+  HardDrive,
+  Lock
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useState, Suspense, lazy } from "react";
@@ -40,6 +42,8 @@ const navItems = [
   { id: "projects", label: "Projects", icon: Kanban, path: "/projects" },
   { id: "email", label: "Email", icon: Mail, path: "/email" },
   { id: "code", label: "Code", icon: Code2, path: "/code" },
+  { id: "storage", label: "Storage", icon: HardDrive, path: "/storage" },
+  { id: "passwords", label: "Passwords", icon: Lock, path: "/passwords" },
 ];
 
 const quickActions = [

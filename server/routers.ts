@@ -4,7 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { getDb } from "./db";
-import { notes, contacts, companies, deals, content, projects, tasks, emails, codeFiles, workspaces, activities } from "../drizzle/schema";
+import { notes, contacts, companies, deals, content, projects, tasks, emails, codeFiles, workspaces, activities, storageDrives, storageFiles, secretsVault, passwordVault, passwordFolders, totpTokens, breachAlerts } from "../drizzle/schema";
 import { eq, desc, and, like } from "drizzle-orm";
 import { invokeLLM } from "./_core/llm";
 
@@ -595,6 +595,308 @@ export const appRouter = router({
         });
         return { success: true };
       }),
+  }),
+
+  // Storage Drive Manager
+  storage: router({
+    listDrives: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(storageDrives).where(eq(storageDrives.userId, ctx.user.id)).orderBy(desc(storageDrives.updatedAt));
+    }),
+
+    createDrive: protectedProcedure
+      .input(z.object({
+        name: z.string(),
+        type: z.enum(["local", "cloud", "virtual", "network", "external"]),
+        provider: z.string().optional(),
+        totalSpace: z.string().optional(),
+        credentials: z.string().optional(),
+        mountPath: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const result = await db.insert(storageDrives).values({
+          userId: ctx.user.id,
+          ...input,
+        });
+        return { id: result[0].insertId };
+      }),
+
+    updateDrive: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        status: z.enum(["connected", "disconnected", "syncing", "error"]).optional(),
+        usedSpace: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const { id, ...updates } = input;
+        await db.update(storageDrives).set(updates).where(and(eq(storageDrives.id, id), eq(storageDrives.userId, ctx.user.id)));
+        return { success: true };
+      }),
+
+    deleteDrive: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await db.delete(storageDrives).where(and(eq(storageDrives.id, input.id), eq(storageDrives.userId, ctx.user.id)));
+        return { success: true };
+      }),
+
+    listFiles: protectedProcedure
+      .input(z.object({
+        driveId: z.number(),
+        parentId: z.number().optional(),
+      }))
+      .query(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        const conditions = [eq(storageFiles.userId, ctx.user.id), eq(storageFiles.driveId, input.driveId)];
+        if (input.parentId) {
+          conditions.push(eq(storageFiles.parentId, input.parentId));
+        }
+        return db.select().from(storageFiles).where(and(...conditions)).orderBy(desc(storageFiles.updatedAt));
+      }),
+
+    createFile: protectedProcedure
+      .input(z.object({
+        driveId: z.number(),
+        parentId: z.number().optional(),
+        name: z.string(),
+        type: z.enum(["file", "folder", "shortcut"]),
+        mimeType: z.string().optional(),
+        size: z.string().optional(),
+        path: z.string(),
+        fileUrl: z.string().optional(),
+        fileKey: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const result = await db.insert(storageFiles).values({
+          userId: ctx.user.id,
+          ...input,
+        });
+        return { id: result[0].insertId };
+      }),
+
+    updateFile: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        isStarred: z.boolean().optional(),
+        isTrashed: z.boolean().optional(),
+        isShared: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const { id, ...updates } = input;
+        await db.update(storageFiles).set(updates).where(and(eq(storageFiles.id, id), eq(storageFiles.userId, ctx.user.id)));
+        return { success: true };
+      }),
+
+    deleteFile: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await db.delete(storageFiles).where(and(eq(storageFiles.id, input.id), eq(storageFiles.userId, ctx.user.id)));
+        return { success: true };
+      }),
+
+    listSecrets: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(secretsVault).where(eq(secretsVault.userId, ctx.user.id)).orderBy(desc(secretsVault.updatedAt));
+    }),
+
+    createSecret: protectedProcedure
+      .input(z.object({
+        name: z.string(),
+        type: z.enum(["api_key", "credential", "certificate", "token", "ssh_key", "other"]),
+        category: z.string().optional(),
+        encryptedValue: z.string(),
+        description: z.string().optional(),
+        expiresAt: z.date().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const result = await db.insert(secretsVault).values({
+          userId: ctx.user.id,
+          ...input,
+        });
+        return { id: result[0].insertId };
+      }),
+
+    deleteSecret: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await db.delete(secretsVault).where(and(eq(secretsVault.id, input.id), eq(secretsVault.userId, ctx.user.id)));
+        return { success: true };
+      }),
+  }),
+
+  // Password Manager
+  passwords: router({
+    listPasswords: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(passwordVault).where(eq(passwordVault.userId, ctx.user.id)).orderBy(desc(passwordVault.updatedAt));
+    }),
+
+    createPassword: protectedProcedure
+      .input(z.object({
+        name: z.string(),
+        username: z.string().optional(),
+        encryptedPassword: z.string(),
+        url: z.string().optional(),
+        category: z.string().optional(),
+        folderId: z.number().optional(),
+        notes: z.string().optional(),
+        passwordStrength: z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const odId = `pwd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const result = await db.insert(passwordVault).values({
+          userId: ctx.user.id,
+          odId,
+          ...input,
+        });
+        return { id: result[0].insertId, odId };
+      }),
+
+    updatePassword: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        username: z.string().optional(),
+        encryptedPassword: z.string().optional(),
+        url: z.string().optional(),
+        category: z.string().optional(),
+        folderId: z.number().optional(),
+        notes: z.string().optional(),
+        isFavorite: z.boolean().optional(),
+        passwordStrength: z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const { id, ...updates } = input;
+        await db.update(passwordVault).set(updates).where(and(eq(passwordVault.id, id), eq(passwordVault.userId, ctx.user.id)));
+        return { success: true };
+      }),
+
+    deletePassword: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await db.delete(passwordVault).where(and(eq(passwordVault.id, input.id), eq(passwordVault.userId, ctx.user.id)));
+        return { success: true };
+      }),
+
+    listFolders: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(passwordFolders).where(eq(passwordFolders.userId, ctx.user.id)).orderBy(desc(passwordFolders.updatedAt));
+    }),
+
+    createFolder: protectedProcedure
+      .input(z.object({
+        name: z.string(),
+        parentId: z.number().optional(),
+        icon: z.string().optional(),
+        color: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const result = await db.insert(passwordFolders).values({
+          userId: ctx.user.id,
+          ...input,
+        });
+        return { id: result[0].insertId };
+      }),
+
+    listTotpTokens: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(totpTokens).where(eq(totpTokens.userId, ctx.user.id)).orderBy(desc(totpTokens.updatedAt));
+    }),
+
+    createTotpToken: protectedProcedure
+      .input(z.object({
+        name: z.string(),
+        issuer: z.string().optional(),
+        encryptedSecret: z.string(),
+        algorithm: z.string().optional(),
+        digits: z.number().optional(),
+        period: z.number().optional(),
+        passwordId: z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const odId = `totp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const result = await db.insert(totpTokens).values({
+          userId: ctx.user.id,
+          odId,
+          ...input,
+        });
+        return { id: result[0].insertId, odId };
+      }),
+
+    deleteTotpToken: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await db.delete(totpTokens).where(and(eq(totpTokens.id, input.id), eq(totpTokens.userId, ctx.user.id)));
+        return { success: true };
+      }),
+
+    getSecurityStats: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return { totalPasswords: 0, weakPasswords: 0, totpEnabled: 0, securityScore: 0 };
+      
+      const passwords = await db.select().from(passwordVault).where(eq(passwordVault.userId, ctx.user.id));
+      const tokens = await db.select().from(totpTokens).where(eq(totpTokens.userId, ctx.user.id));
+      
+      const totalPasswords = passwords.length;
+      const weakPasswords = passwords.filter(p => (p.passwordStrength || 0) < 60).length;
+      const totpEnabled = tokens.length;
+      
+      // Calculate security score
+      let score = 100;
+      if (totalPasswords > 0) {
+        score -= (weakPasswords / totalPasswords) * 30;
+        if (totpEnabled < totalPasswords * 0.5) score -= 20;
+      }
+      
+      return {
+        totalPasswords,
+        weakPasswords,
+        totpEnabled,
+        securityScore: Math.max(0, Math.round(score)),
+      };
+    }),
+
+    listBreachAlerts: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(breachAlerts).where(eq(breachAlerts.userId, ctx.user.id)).orderBy(desc(breachAlerts.createdAt));
+    }),
   }),
 });
 

@@ -279,3 +279,183 @@ export const activities = mysqlTable("activities", {
 
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = typeof activities.$inferInsert;
+
+
+// ==================== STORAGE DRIVES ====================
+export const storageDrives = mysqlTable("storage_drives", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  type: mysqlEnum("type", ["local", "cloud", "virtual", "network", "external"]).default("local"),
+  provider: varchar("provider", { length: 100 }), // s3, gdrive, dropbox, onedrive, etc.
+  icon: varchar("icon", { length: 64 }),
+  color: varchar("color", { length: 32 }),
+  totalSpace: varchar("totalSpace", { length: 50 }),
+  usedSpace: varchar("usedSpace", { length: 50 }),
+  status: mysqlEnum("status", ["connected", "disconnected", "syncing", "error"]).default("connected"),
+  credentials: text("credentials"), // encrypted credentials
+  mountPath: varchar("mountPath", { length: 500 }),
+  lastSynced: timestamp("lastSynced"),
+  settings: json("settings"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type StorageDrive = typeof storageDrives.$inferSelect;
+export type InsertStorageDrive = typeof storageDrives.$inferInsert;
+
+// ==================== STORAGE FILES ====================
+export const storageFiles = mysqlTable("storage_files", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  driveId: int("driveId").notNull(),
+  parentId: int("parentId"),
+  name: varchar("name", { length: 500 }).notNull(),
+  type: mysqlEnum("type", ["file", "folder", "shortcut"]).default("file"),
+  mimeType: varchar("mimeType", { length: 200 }),
+  size: varchar("size", { length: 50 }),
+  path: varchar("path", { length: 2000 }),
+  fileUrl: text("fileUrl"),
+  fileKey: varchar("fileKey", { length: 500 }),
+  thumbnail: text("thumbnail"),
+  isStarred: boolean("isStarred").default(false),
+  isTrashed: boolean("isTrashed").default(false),
+  isShared: boolean("isShared").default(false),
+  shareSettings: json("shareSettings"),
+  metadata: json("metadata"),
+  tags: json("tags"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type StorageFile = typeof storageFiles.$inferSelect;
+export type InsertStorageFile = typeof storageFiles.$inferInsert;
+
+// ==================== SECRETS VAULT ====================
+export const secretsVault = mysqlTable("secrets_vault", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  type: mysqlEnum("type", ["api_key", "credential", "certificate", "token", "ssh_key", "other"]).default("credential"),
+  category: varchar("category", { length: 100 }),
+  encryptedValue: text("encryptedValue").notNull(),
+  description: text("description"),
+  expiresAt: timestamp("expiresAt"),
+  lastUsed: timestamp("lastUsed"),
+  tags: json("tags"),
+  metadata: json("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SecretVault = typeof secretsVault.$inferSelect;
+export type InsertSecretVault = typeof secretsVault.$inferInsert;
+
+// ==================== PASSWORD VAULT ====================
+export const passwordVault = mysqlTable("password_vault", {
+  id: int("id").autoincrement().primaryKey(),
+  odId: varchar("odId", { length: 64 }).notNull(), // offline-capable unique ID
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  username: varchar("username", { length: 320 }),
+  encryptedPassword: text("encryptedPassword").notNull(),
+  url: text("url"),
+  category: varchar("category", { length: 100 }),
+  folderId: int("folderId"),
+  icon: varchar("icon", { length: 64 }),
+  favicon: text("favicon"),
+  notes: text("notes"),
+  isFavorite: boolean("isFavorite").default(false),
+  lastUsed: timestamp("lastUsed"),
+  passwordStrength: int("passwordStrength").default(0),
+  customFields: json("customFields"),
+  tags: json("tags"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PasswordVault = typeof passwordVault.$inferSelect;
+export type InsertPasswordVault = typeof passwordVault.$inferInsert;
+
+// ==================== PASSWORD FOLDERS ====================
+export const passwordFolders = mysqlTable("password_folders", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  parentId: int("parentId"),
+  name: varchar("name", { length: 255 }).notNull(),
+  icon: varchar("icon", { length: 64 }),
+  color: varchar("color", { length: 32 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PasswordFolder = typeof passwordFolders.$inferSelect;
+export type InsertPasswordFolder = typeof passwordFolders.$inferInsert;
+
+// ==================== 2FA / TOTP TOKENS ====================
+export const totpTokens = mysqlTable("totp_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  odId: varchar("odId", { length: 64 }).notNull(), // offline-capable unique ID
+  userId: int("userId").notNull(),
+  passwordId: int("passwordId"), // linked to password entry
+  name: varchar("name", { length: 255 }).notNull(),
+  issuer: varchar("issuer", { length: 255 }),
+  encryptedSecret: text("encryptedSecret").notNull(),
+  algorithm: varchar("algorithm", { length: 20 }).default("SHA1"),
+  digits: int("digits").default(6),
+  period: int("period").default(30),
+  icon: varchar("icon", { length: 64 }),
+  favicon: text("favicon"),
+  category: varchar("category", { length: 100 }),
+  isFavorite: boolean("isFavorite").default(false),
+  lastUsed: timestamp("lastUsed"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TotpToken = typeof totpTokens.$inferSelect;
+export type InsertTotpToken = typeof totpTokens.$inferInsert;
+
+// ==================== MFA BACKUP CODES ====================
+export const mfaBackupCodes = mysqlTable("mfa_backup_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  passwordId: int("passwordId"),
+  totpId: int("totpId"),
+  encryptedCodes: text("encryptedCodes").notNull(),
+  usedCodes: json("usedCodes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MfaBackupCode = typeof mfaBackupCodes.$inferSelect;
+export type InsertMfaBackupCode = typeof mfaBackupCodes.$inferInsert;
+
+// ==================== PASSWORD HISTORY ====================
+export const passwordHistory = mysqlTable("password_history", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  passwordId: int("passwordId").notNull(),
+  encryptedPassword: text("encryptedPassword").notNull(),
+  changedAt: timestamp("changedAt").defaultNow().notNull(),
+});
+
+export type PasswordHistoryEntry = typeof passwordHistory.$inferSelect;
+export type InsertPasswordHistory = typeof passwordHistory.$inferInsert;
+
+// ==================== BREACH ALERTS ====================
+export const breachAlerts = mysqlTable("breach_alerts", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  passwordId: int("passwordId"),
+  breachName: varchar("breachName", { length: 255 }),
+  breachDate: timestamp("breachDate"),
+  description: text("description"),
+  severity: mysqlEnum("severity", ["low", "medium", "high", "critical"]).default("medium"),
+  isResolved: boolean("isResolved").default(false),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type BreachAlert = typeof breachAlerts.$inferSelect;
+export type InsertBreachAlert = typeof breachAlerts.$inferInsert;

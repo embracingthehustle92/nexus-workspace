@@ -15,6 +15,13 @@
       "when": 1767820743984,
       "tag": "0001_volatile_wildside",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1767827114601,
+      "tag": "0002_bouncy_shadowcat",
+      "breakpoints": true
     }
   ]
 }

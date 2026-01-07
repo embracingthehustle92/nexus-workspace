@@ -12,6 +12,8 @@ import Content from "./pages/Content";
 import Projects from "./pages/Projects";
 import Email from "./pages/Email";
 import CodeEditor from "./pages/CodeEditor";
+import Storage from "./pages/Storage";
+import Passwords from "./pages/Passwords";
 
 function Router() {
   return (
@@ -28,6 +30,10 @@ function Router() {
       <Route path="/email" component={Email} />
       <Route path="/email/:folder" component={Email} />
       <Route path="/code" component={CodeEditor} />
+      <Route path="/storage" component={Storage} />
+      <Route path="/storage/:driveId" component={Storage} />
+      <Route path="/passwords" component={Passwords} />
+      <Route path="/passwords/:tab" component={Passwords} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
