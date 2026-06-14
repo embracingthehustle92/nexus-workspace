@@ -14,6 +14,7 @@ import Email from "./pages/Email";
 import CodeEditor from "./pages/CodeEditor";
 import Storage from "./pages/Storage";
 import Passwords from "./pages/Passwords";
+import DevEnvironment from "./pages/DevEnvironment";
 
 function Router() {
   return (
@@ -34,6 +35,7 @@ function Router() {
       <Route path="/storage/:driveId" component={Storage} />
       <Route path="/passwords" component={Passwords} />
       <Route path="/passwords/:tab" component={Passwords} />
+      <Route path="/ide" component={DevEnvironment} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
